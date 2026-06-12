@@ -41,7 +41,8 @@ describe('Sequelize App Routes', () => {
         .post('/users')
         .send({
           name: 'John Doe',
-          email: 'john@example.com'
+          email: 'john@example.com',
+          password: 'password123' // Ajouter un mot de passe pour respecter la validation du modèle
         });
       
       expect(response.status).to.equal(201);
@@ -67,7 +68,8 @@ describe('Sequelize App Routes', () => {
         .post('/users')
         .send({
           name: 'John Doe',
-          email: 'john@example.com'
+          email: 'john@example.com',
+          password: 'password123' // Ajouter un mot de passe pour respecter la validation du modèle
         });
 
       // Essayer de créer un utilisateur avec le même email
@@ -94,8 +96,8 @@ describe('Sequelize App Routes', () => {
 
     it('devrait retourner les utilisateurs créés', async () => {
       // Créer deux utilisateurs
-      await User.create({ name: 'User 1', email: 'user1@example.com' });
-      await User.create({ name: 'User 2', email: 'user2@example.com' });
+      await User.create({ name: 'User 1', email: 'user1@example.com', password: 'password123' });
+      await User.create({ name: 'User 2', email: 'user2@example.com', password: 'password123' });
 
       const response = await request(app).get('/users');
       
@@ -104,6 +106,33 @@ describe('Sequelize App Routes', () => {
       expect(response.body).to.have.lengthOf(2);
       expect(response.body[0].name).to.equal('User 1');
       expect(response.body[1].name).to.equal('User 2');
+    });
+  });
+
+  describe('User flow', () => {
+    it('sign up', async () => {
+      const response = await request(app)
+        .post('/signup')
+        .send({
+          name: 'John Doe',
+          email: 'john@example.com',
+          password: 'password123'
+        });
+      
+      expect(response.status).to.equal(201);
+      expect(response.body).to.have.property('id');
+      expect(response.body.name).to.equal('John Doe');
+      expect(response.body.email).to.equal('john@example.com');
+    });
+
+    it('sign up should fail with missing email', async () => {
+      const response = await request(app)
+        .post('/signup')
+        .send({
+          name: 'John Doe',
+        });
+      
+      expect(response.status).to.equal(400);
     });
   });
 });
