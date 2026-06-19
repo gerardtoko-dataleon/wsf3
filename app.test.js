@@ -134,5 +134,78 @@ describe('Sequelize App Routes', () => {
       
       expect(response.status).to.equal(400);
     });
+
+    it('sign up and login', async () => {
+      const response = await request(app)
+        .post('/signup')
+        .send({
+          name: 'John Doe',
+          email: 'john@example.com',
+          password: 'password123'
+        });
+      
+      expect(response.status).to.equal(201);
+      expect(response.body).to.have.property('id');
+      expect(response.body.name).to.equal('John Doe');
+      expect(response.body.email).to.equal('john@example.com');
+
+      const loginResponse = await request(app)
+        .post('/login')
+        .send({
+          email: 'john@example.com',
+          password: 'password123'
+        });
+      
+      expect(loginResponse.status).to.equal(200);
+      expect(loginResponse.body).to.have.property('token');
+    });
+
+    it('sign up and login and create post', async () => {
+      const response = await request(app)
+        .post('/signup')
+        .send({
+          name: 'John Doe',
+          email: 'john@example.com',
+          password: 'password123'
+        });
+
+      expect(response.status).to.equal(201);
+      const loginResponse = await request(app)
+        .post('/login')
+        .send({
+          email: 'john@example.com',
+          password: 'password123'
+        });
+
+      expect(loginResponse.status).to.equal(200);
+      expect(loginResponse.body).to.have.property('token');
+      
+      const token = loginResponse.body.token;
+
+      const postResponse = await request(app)
+        .post('/posts')
+        .set('Authorization', token)
+        .send({
+          title: 'My First Post',
+          content: 'This is the content of my first post.'
+        });
+
+      expect(postResponse.status).to.equal(201);
+      expect(postResponse.body).to.have.property('id');
+      expect(postResponse.body.title).to.equal('My First Post');
+      expect(postResponse.body.content).to.equal('This is the content of my first post.');
+    });
+
+    it('create post without authentication', async () => {
+      const response = await request(app)
+        .post('/posts')
+        .send({
+          title: 'My First Post',
+          content: 'This is the content of my first post.'
+        });
+
+      expect(response.status).to.equal(401);
+      expect(response.body).to.have.property('error');
+    });
   });
 });

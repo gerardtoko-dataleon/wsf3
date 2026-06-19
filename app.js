@@ -2,6 +2,8 @@
 const express = require('express');
 const app = express();
 const User = require('./User'); // Importer le modèle Sequelize
+const Session = require('./Session'); // Importer le modèle de session
+const Post = require('./Post'); // Importer le modèle de session
 const md5 = require('md5'); // Assurez-vous d'installer md5 avec npm install md5
 
 app.use(express.json());
@@ -36,12 +38,77 @@ app.post('/signup', async (req, res) => {
   }
 });
 
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const passwordEncrypted = hashPassword(password);
+  if (user.password !== passwordEncrypted) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // Générer un token de session (vous pouvez utiliser une bibliothèque comme uuid ou crypto)
+  const token = require('crypto').randomBytes(64).toString('hex');
+  const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // Expiration dans 1 heure
+
+  // Créer une session dans la base de données
+  await Session.create({ token, expirationDate, userId: user.id });
+
+  res.json({ token, expirationDate });
+});
+
+app.post('/logout', async (req, res) => {
+  const {token } = req.body;
+  const session = await Session.findOne({ where: { token } });
+  if (!session) {
+    return res.status(400).json({ error: 'Invalid token' });
+  }
+  session.destroy();
+  res.json({ message: 'Logged out successfully' });
+});
+
 app.post('/users', async (req, res) => {
   const { name, email, password } = req.body;
   const passwordEncrypted = hashPassword(password);
   try {
     const user = await User.create({ name, email, password: passwordEncrypted });
     res.status(201).json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/posts', async (req, res) => {
+  const { title, content } = req.body;
+  const token = req.headers['authorization'];
+  // Vérifier si le token est présent
+  if (!token) {
+    return res.status(401).json({ error: 'Token is required' });
+  }
+
+  // Vérifier si le token est valide et récupérer l'utilisateur associé
+  const session = await Session.findOne({ where: { token } });
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  const userId = session.userId;
+
+  // Vérifier si l'utilisateur existe
+  const user = await User.findByPk(userId);
+  if (!user) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+  try {
+    // Créer le post avec l'ID de l'utilisateur associé
+    const post = await Post.create({ title, content, userId });
+    res.status(201).json(post);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
